@@ -18,6 +18,7 @@ class GarageMonitor
   #
   # ---
   # notify_email: me@example.com
+  # notify_email2: me@example.com
   # sender_email: pi@example.com
   # smtp:
   #   address: smtp.gmail.com
@@ -50,17 +51,17 @@ class GarageMonitor
     email_status = "Garage Door #{status}\t#{time}" 
     puts email_status
 
-    send_garage_status_email_to(APP_CONFIG['notify_email'], status, email_status) if email
+    send_garage_status_email_to([APP_CONFIG['notify_email'], APP_CONFIG['notify_email2']], status, email_status) if email
   end
 
-  def send_garage_status_email_to(recipient, state="Unknown", email_status)
+  def send_garage_status_email_to(recipients, state="Unknown", email_status)
     host_name = Socket.gethostname
     email_subject = "Garage Door Detector"
 
     # example
     # Pony.mail(:to => 'you@example.com', :cc => 'him@example.com', :from => 'me@example.com', :subject => 'hi', :body => 'Howsit!')
     Pony.mail({
-      :to => recipient,
+      :to => recipients,
       :from => APP_CONFIG['sender_email'],
       :via => :smtp,
       :via_options => {
