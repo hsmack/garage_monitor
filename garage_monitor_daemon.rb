@@ -3,9 +3,9 @@
 # The pin number is specified by the user
 #
 
-
 require 'pi_piper'
 require 'pony'
+require 'yaml'
 require 'socket'
 
 # enable daemon
@@ -18,7 +18,6 @@ class GarageMonitor
   #
   # ---
   # notify_email: me@example.com
-  # notify_email2: me@example.com
   # sender_email: pi@example.com
   # smtp:
   #   address: smtp.gmail.com
@@ -37,10 +36,6 @@ class GarageMonitor
 
   DEFAULT_GARAGE_DOOR_MONITOR_GPIO = 8
 
-  def pin_changed?
-    $previous_state != @pin.value
-  end
-
   def report_garage_status(value, time, email=false)
     status = "Unknown"
     if value == 0
@@ -51,7 +46,7 @@ class GarageMonitor
     email_status = "Garage Door #{status}\t#{time}" 
     puts email_status
 
-    send_garage_status_email_to([APP_CONFIG['notify_email'], APP_CONFIG['notify_email2']], status, email_status) if email
+    send_garage_status_email_to(APP_CONFIG['notify_email'], status, email_status) if email
   end
 
   def send_garage_status_email_to(recipients, state="Unknown", email_status)
