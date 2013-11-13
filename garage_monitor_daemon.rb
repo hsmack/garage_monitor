@@ -46,12 +46,12 @@ class GarageMonitor
 
   def thread_report_garage_status(*args)
     t = Thread.new do
+      Thread.abort_on_exception = true
       report_garage_status(*args)
       Thread.exit
     end
-    t.abort_on_exception = true
   end
-  
+
   def report_garage_status(value, time, email=false)
     status = "Unknown"
     if value == 0
