@@ -36,6 +36,22 @@ class GarageMonitor
 
   DEFAULT_GARAGE_DOOR_MONITOR_GPIO = 8
 
+
+  def initialize(selected_pin = DEFAULT_GARAGE_DOOR_MONITOR_GPIO)
+    @gpio_pin = selected_pin
+    @pin = PiPiper::Pin.new(:pin => @gpio_pin, :direction => :in)
+    # @pin = PiPiper::Pin.new(:pin => pin, :direction => :in, :pull => :up) #:pull => :up
+
+  end
+
+  def thread_report_garage_status(*args)
+    t = Thread.new do
+      report_garage_status(*args)
+      Thread.exit
+    end
+    t.abort_on_exception = true
+  end
+  
   def report_garage_status(value, time, email=false)
     status = "Unknown"
     if value == 0
@@ -75,13 +91,6 @@ class GarageMonitor
     puts "  email sent..."
   end
 
-  def initialize(selected_pin = DEFAULT_GARAGE_DOOR_MONITOR_GPIO)
-    @gpio_pin = selected_pin
-    @pin = PiPiper::Pin.new(:pin => @gpio_pin, :direction => :in)
-    # @pin = PiPiper::Pin.new(:pin => pin, :direction => :in, :pull => :up) #:pull => :up
-
-  end
-
   def run
     puts "  GARAGE_DOOR_MONITOR_GPIO pin as input: #{@gpio_pin}"
     puts "  Garage monitor initialized ..."
@@ -94,7 +103,7 @@ class GarageMonitor
         sleep 0.6
         if @pin.read == value
           time = Time.now.localtime
-          report_garage_status(value, time, true)
+          thread_report_garage_status(value, time, true)
           @last_state = value
           @last_time = time
         else
