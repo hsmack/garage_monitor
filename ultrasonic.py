@@ -84,8 +84,8 @@ def meas(trigger_pin, echo_pin):
 
 
 for i in xrange(15):
-  # print "meas sensor blue {}".format(i)
-  # meas(GPIO_TRIGGER1, GPIO_ECHO1)
+  print "meas sensor blue {}".format(i)
+  meas(GPIO_TRIGGER1, GPIO_ECHO1)
   
   time.sleep(0.2) # rest the sensor a bit?
 
