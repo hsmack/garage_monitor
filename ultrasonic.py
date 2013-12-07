@@ -77,24 +77,20 @@ def meas(trigger_pin, echo_pin):
 
   # Distance pulse travelled in that time is time
   # multiplied by the speed of sound (cm/s) and /2 the distance
-  distance = elapsed * 34029 / 2
+  distance = elapsed * 34029 / 2 / 2.54
 
-  print "Distance : %.1f cm" % distance
+  print "Distance : %.1f inches" % distance
   return distance
 
 
 for i in xrange(15):
-  print "meas sensor blue {}".format(i)
-  start = time.time()
-  meas(GPIO_TRIGGER1, GPIO_ECHO1)
-  end = time.time()
-  print "measurement took {} seconds".format(end - start)
+  # print "meas sensor blue {}".format(i)
+  # meas(GPIO_TRIGGER1, GPIO_ECHO1)
   
+  time.sleep(0.2) # rest the sensor a bit?
+
   print "meas sensor red {}".format(i)
-  start = time.time()
   meas(GPIO_TRIGGER2, GPIO_ECHO2)
-  end = time.time()
-  print "measurement took {} seconds".format(end - start)
   time.sleep(1)
 
 
