@@ -20,6 +20,7 @@ GPIO_TRIGGER2 = 22
 GPIO_ECHO2    = 23
 
 
+
 class DistanceDetector:
   """garage monitor, uses ultrasonic distance detection to determine if the garage door is open or not"""
   def __init__(self, trigger_pin, echo_pin, timeout=1):
@@ -59,6 +60,7 @@ class DistanceDetector:
     time.sleep(0.00001)
     GPIO.output(self.trigger_pin, False)
     start = time.time()
+    stop = time.time()
 
     timeout_start = time.time()
     timeout_exceeded_flag = False
@@ -190,6 +192,11 @@ class DistanceDetector:
 #
 def main():
   print "Ultrasonic Measurement, 2 sensors"
+
+  # clean restart of GPIOs.  This fixes any script restart problems
+  GPIO.setmode(GPIO.BCM)
+  # Reset GPIO settings
+  GPIO.cleanup()
 
   blue = DistanceDetector(GPIO_TRIGGER1, GPIO_ECHO1)#, 2)
   red = DistanceDetector(GPIO_TRIGGER2, GPIO_ECHO2)#, 2)
