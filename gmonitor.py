@@ -320,6 +320,20 @@ def main():
       c.execute( "INSERT into door values (?, ?, ?, ?);", (db_next_id(c, 'door'), now, -1, door_state))
       db_conn.commit()
 
+      #
+      # report state to push notification server
+      #
+      s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+      s.connect((HOST, PORT))
+      data = ','.join(["-1", now, door_state])
+      print 'sending payload ...', repr(data)
+      s.sendall(data)
+      s.close()
+
+      #
+      # spin off a thread to send email notifications
+      #
+      
 
   # Reset GPIO settings
   GPIO.cleanup()
