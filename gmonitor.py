@@ -5,11 +5,16 @@
 # if the garage door is open or not
 #
 #
+import os
+import sys
+import warnings
+import subprocess
 import time
+import signal
+import sqlite3
+import socket
 import RPi.GPIO as GPIO
 import numpy as NP
-import warnings
-
 
 # Define GPIO to use on Pi
 GPIO_TRIGGER1 = 11
@@ -19,6 +24,14 @@ GPIO_ECHO1    = 8
 GPIO_TRIGGER2 = 22
 GPIO_ECHO2    = 23
 
+
+# push notifications host
+HOST = 'kitty.local'    # The remote host
+PORT = 4001              # The same port as used by the server
+
+
+db_conn = sqlite3.connect('gm.db')
+c = db_conn.cursor()
 
 
 class DistanceDetector:
@@ -78,7 +91,7 @@ class DistanceDetector:
         break
 
     if timeout_exceeded_flag:
-      print "TIMEOUT... no measurement"
+      # print "TIMEOUT... no measurement"
       return -1
 
     # Calculate pulse length
@@ -111,7 +124,7 @@ class DistanceDetector:
       if (dist < MAX_DISTANCE_IGNORED): # 300cm is 118in max range of the sensor
         raw_readings.append(dist)
 
-    print "--- measurements done"
+    # print "--- measurements done"
     # DEBUG: dump stats as debug
     # print repr(raw_readings)
     # print "min: {:.1f}".format(min(raw_readings))
@@ -153,9 +166,9 @@ class DistanceDetector:
     # print repr(filtered_readings)
 
     avg = (sum(filtered_readings)/len(filtered_readings))
-    print "min: {:.1f}".format(min(filtered_readings))
-    print "max: {:.1f}".format(max(filtered_readings))
-    print "avg(n={}): {:.1f}".format(len(filtered_readings), avg)
+    # print "min: {:.1f}".format(min(filtered_readings))
+    # print "max: {:.1f}".format(max(filtered_readings))
+    # print "avg(n={}): {:.1f}".format(len(filtered_readings), avg)
 
     # check all computations
     if high[1] != len(filtered_readings):
@@ -188,10 +201,28 @@ class DistanceDetector:
 
 
 #
+# interrupt handler:  exit from application and close gpios
+#
+def exit_gracefully(signum, frame):
+  print "You pressed Ctrl-C, exiting program (status=0) ..."
+  GPIO.cleanup()
+  db_conn.close() # close database connection
+  sys.exit(0)
+
+
+def db_next_id(db_cursor, table):
+  max_id = db_cursor.execute('SELECT max(id) FROM {}'.format(table)).fetchone()[0]
+  if max_id <= 0:
+    max_id = 0  
+  return max_id+1
+
+#
 # main()
 #
 def main():
-  print "Ultrasonic Measurement, 2 sensors"
+  timenow = time.localtime()
+  now = time.strftime("%a, %d %b %Y %H:%M:%S +0000", timenow)
+  print "Ultrasonic Measurement start: {}".format(now)
 
   # clean restart of GPIOs.  This fixes any script restart problems
   GPIO.setmode(GPIO.BCM)
@@ -200,20 +231,100 @@ def main():
 
   blue = DistanceDetector(GPIO_TRIGGER1, GPIO_ECHO1)#, 2)
   red = DistanceDetector(GPIO_TRIGGER2, GPIO_ECHO2)#, 2)
+  
+  DEBUG_VERBOSE = False
+  
 
-  for i in xrange(30):
-    time.sleep(1)
-    print("{} red measure...".format(i))
-    red.measure_many()
-    # print("{} blue measure...".format(i))
-    # blue.measure_many()
+  #
+  # record into the database that the script started up
+  #
+  hostname = subprocess.check_output(['hostname'])
+  hostname = hostname.rstrip(os.linesep)
+  now = time.strftime("%Y-%m-%d %H:%M:%S", timenow)
+  c.execute( "INSERT into startup values (?, ?, ?);", (db_next_id(c, 'startup'), now, hostname))
+  db_conn.commit()
+
+
+  #
+  # This stores the state in memory to track
+  # if the  door changes when the script restarts.
+  #
+  # the database also uses this to track changes
+  #
+  door_state = False
+  flag_changed = True
+
+  #
+  # main() loop
+  #
+  while True:
+
+    
+    #
+    # take 5 measurements
+    # 3 measurements will confirm the distance
+    #
+    readings = []
+    for i in xrange(5):
+      time.sleep(0.5)
+      #print("{} red measure...".format(i))
+      dist = red.measure_many()
+      if dist > 0:
+        readings.append(dist)
+    
+    if DEBUG_VERBOSE:
+      print repr(readings)
+
+    open_count = 0
+    closed_count = 0
+    for dist in readings:
+      if dist <= 5:
+        open_count += 1
+      else:
+        closed_count += 1
+
+    
+    # 
+    # this statement is critical
+    # the default is to report the door is open
+    # therefore any false positives due to sensor errors
+    # will force me to check if the door is open.  
+    #
+    if closed_count > open_count:
+      if door_state != 'CLOSED':
+        flag_changed = True
+      door_state = 'CLOSED'
+    else:
+      if door_state != 'OPEN':
+        flag_changed = True
+      door_state = 'OPEN'
+
+    # debug only
+    flag_changed = True 
+
+    #
+    # report status in every method possible
+    #
+    if flag_changed == True:
+      print "  * state change detected.  write db"
+      flag_changed = False
+      
+      # report measurement to STDOUT
+      timenow = time.localtime()
+      now = time.strftime("%a, %d %b %Y %H:%M:%S +0000", timenow)
+      print "-- Measurement {} --".format(now)
+      print "door (open {}x{}): {}".format(open_count, closed_count, door_state)
+           
+      # write into db
+      now = time.strftime("%Y-%m-%d %H:%M:%S", timenow)
+      c.execute( "INSERT into door values (?, ?, ?, ?);", (db_next_id(c, 'door'), now, -1, door_state))
+      db_conn.commit()
 
 
   # Reset GPIO settings
   GPIO.cleanup()
-
-
-
+  db_conn.close() # close database connection
 
 if __name__ == "__main__":
-    main()
+  signal.signal(signal.SIGINT, exit_gracefully)
+  main()
