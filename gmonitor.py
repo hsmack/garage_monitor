@@ -7,7 +7,6 @@
 #
 import os
 import sys
-import warnings
 import subprocess
 import thread
 import time
@@ -182,7 +181,7 @@ class DistanceDetector:
 
     # check all computations
     if high[1] != len(filtered_readings):
-      warnings.warn("measurement processing error, filtered readings are not processed correctly and result maybe inaccurate", MeasurementProcessingError)
+      sys.stderr.write("measurement processing error, filtered readings are not processed correctly and result maybe inaccurate\n")
 
     # save measurements for analytics
     # all_measurements.append(raw_readings)
@@ -303,7 +302,8 @@ def send_email_in_thread(door_state, timestamp):
   try:
    thread.start_new_thread(send_email, (door_state, timestamp))
   except:
-   warnings.warn("Error: unable to send email in a thread", EmailSendError)
+    sys.stderr.write("EmailSendError: %s \n" % sys.exc_info()[1])
+
 
 #
 # main()
@@ -419,8 +419,8 @@ def main():
         s.sendall(data)
         s.close()
       except:
-        warnings.warn("Error:  Unable to contact push notification server", PushServerCommunicationError)
-
+        sys.stderr.write("PushNotificationCommunicationError: %s \n" % sys.exc_info()[1])
+  
       #
       # spin off a thread to send email notifications
       #
