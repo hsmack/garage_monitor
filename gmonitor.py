@@ -33,8 +33,8 @@ GPIO_ECHO1    = 8
 GPIO_TRIGGER2 = 22
 GPIO_ECHO2    = 23
 
-
-db_conn = sqlite3.connect('gm.db')
+db_file = APP_CONFIG.get('DATABASE', 'database')
+db_conn = sqlite3.connect(db_file)
 c = db_conn.cursor()
 
 
