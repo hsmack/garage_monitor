@@ -34,11 +34,6 @@ GPIO_TRIGGER2 = 22
 GPIO_ECHO2    = 23
 
 
-# push notifications host
-HOST = 'kitty.local'    # The remote host
-PORT = 4001              # The same port as used by the server
-
-
 db_conn = sqlite3.connect('gm.db')
 c = db_conn.cursor()
 
@@ -299,16 +294,38 @@ def send_email(door_state, timestamp):
 # runs send_email() inside a thread, so it's non blocking
 #
 def send_email_in_thread(door_state, timestamp):  
-  try:
-   thread.start_new_thread(send_email, (door_state, timestamp))
-  except:
-    sys.stderr.write("EmailSendError: %s \n" % sys.exc_info()[1])
+  global APP_CONFIG
+  if APP_CONFIG.getboolean('ENABLE NOTIFICATIONS','via_email') == True:
+    try:
+     thread.start_new_thread(send_email, (door_state, timestamp))
+    except:
+      sys.stderr.write("EmailSendError: %s \n" % sys.exc_info()[1])
 
+#
+# turns on LED on remote display
+#
+def push_state_to_led_server(data):
+  global APP_CONFIG
+  
+  host = APP_CONFIG.get('PUSH NOTIFICATION REMOTE SERVER', 'host')    # The remote host
+  port = APP_CONFIG.getint('PUSH NOTIFICATION REMOTE SERVER', 'port')              # The same port as used by the server
+
+  if APP_CONFIG.getboolean('ENABLE NOTIFICATIONS','via_push_notify') == True:
+    try:
+      s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+      s.connect((host, port))
+      print 'push to LED notify server ...', repr(data)
+      s.sendall(data)
+      s.close()
+    except:
+      sys.stderr.write("PushNotificationCommunicationError: %s \n" % sys.exc_info()[1])
+  
 
 #
 # main()
 #
 def main():
+  global APP_CONFIG
   timenow = time.localtime()
   now = time.strftime("%a, %d %b %Y %H:%M:%S", timenow)
   print "Ultrasonic Measurement start: {}".format(now)
@@ -411,16 +428,8 @@ def main():
       #
       # report state to push notification server
       #
-      try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((HOST, PORT))
-        data = ','.join(["-1", db_time, door_state])
-        print 'talking to push notify server ...', repr(data)
-        s.sendall(data)
-        s.close()
-      except:
-        sys.stderr.write("PushNotificationCommunicationError: %s \n" % sys.exc_info()[1])
-  
+      data = ','.join(["-1", db_time, door_state])
+      push_state_to_led_server(data)
       #
       # spin off a thread to send email notifications
       #
