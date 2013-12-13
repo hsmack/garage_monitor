@@ -318,7 +318,9 @@ def push_state_to_led_server(data):
       s.sendall(data)
       s.close()
     except:
-      sys.stderr.write("PushNotificationCommunicationError: %s \n" % sys.exc_info()[1])
+      timenow = time.localtime()
+      now = time.strftime("%a, %d %b %Y %H:%M:%S", timenow)
+      sys.stderr.write("PushNotificationCommunicationError: %s: %s \n" % (now, sys.exc_info()[1]))
   
 
 #
@@ -405,7 +407,7 @@ def main():
       door_state = 'OPEN'
 
     # debug only
-    flag_changed = True 
+    # flag_changed = True 
 
     #
     # report status in every method possible
