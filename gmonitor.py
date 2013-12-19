@@ -208,6 +208,8 @@ class DistanceDetector:
 # interrupt handler:  exit from application and close gpios
 #
 def exit_gracefully(signum, frame):
+  global db_conn
+  
   print "You pressed Ctrl-C, exiting program (status=0) ..."
   GPIO.cleanup()
   db_conn.close() # close database connection
@@ -328,6 +330,8 @@ def push_state_to_led_server(data):
 #
 def main():
   global APP_CONFIG
+  global db_conn, c
+
   timenow = time.localtime()
   now = time.strftime("%a, %d %b %Y %H:%M:%S", timenow)
   print "Ultrasonic Measurement start: {}".format(now)
