@@ -186,18 +186,13 @@ def main():
       print 'Connected by', addr
       data = conn.recv(1024)
       if len(data) > 0:
-
         print 'data is: ' + data
         d = data.split(',')
         if d[2] == 'OPEN':
           fsm.open_now()
-          fsm.opened_forever()
         else:
-          # print "LED RED is off"
           fsm.close_now()
-
       conn.close()
-
   s.close()
 
   pass
