@@ -214,6 +214,7 @@ def exit_gracefully(signum, frame):
 
 
 if __name__ == "__main__":
-  signal.signal(signal.SIGINT, exit_gracefully)
+  for sig in [signal.SIGTERM, signal.SIGINT, signal.SIGHUP, signal.SIGQUIT]:
+    signal.signal(sig, exit_gracefully)
   main()
 
