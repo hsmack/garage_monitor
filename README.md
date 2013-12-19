@@ -37,12 +37,13 @@ sudo apt-get install sqlite3 libsqlite3-dev
 # install ruby sqlite3 drivers
 sudo gem install sqlite3 --no-ri --no-rdoc
 
-# ultrasimple ruby web server framework
-# perfect for this design
+# ultrasimple ruby web framework
+# the code for the web
 sudo gem install sinatra --no-ri --no-rdoc
 
-# web server in ruby
+# web server in ruby which can run sinatra
 sudo gem install thin --no-ri --no-rdoc
+
 
 ```
 
