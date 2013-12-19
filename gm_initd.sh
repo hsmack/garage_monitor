@@ -12,8 +12,8 @@
 NAME=god
 DESC=god
 GOD_BIN=/usr/local/bin/god
-GOD_CONFIG=/home/pi/tv.god
-#GOD_LOG=/home/pi/tvgod.log
+GOD_CONFIG=/home/pi/garage.god
+#GOD_LOG=/home/pi/garage.log
  
 set -e
  
