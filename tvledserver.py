@@ -74,70 +74,93 @@ def led_test(led):
   time.sleep(0.3)
   led.off()
 
-def led_test_for_reset():
+def test_led_for_reset():
   global green_led, red_led
   led_test(green_led)
   led_test(red_led)
 
-def blink_red_led():
+def blink_red_led_then_solid():
   global green_led, red_led
+  green_led.off()
   # 100 times is 1 minute
   # 50 times is 30 seconds
-  for i in xrange(15):
+  for i in xrange(100):
     red_led.off()
     time.sleep(0.3)
     red_led.on()
     time.sleep(0.3)
 
+def blink_green_led_then_solid():
+  global green_led, red_led
+  red_led.off()
+  # 100 times is 1 minute
+  # 50 times is 30 seconds
+  for i in xrange(100):
+    green_led.off()
+    time.sleep(0.3)
+    green_led.on()
+    time.sleep(0.3)
+
 
 # initialize LED controller hardware
 led_controller = Process(target=do_nothing, args=())
+led_controller.start()
 
 
 #
 # state machine setup
 #
 def onreset(e):
-  global green_led, red_led
   global led_controller
+  global green_led, red_led
   print 'reset'
-  led_test_for_reset()
+  #
+  # always kill existing process and run new process
+  #
+  if led_controller.is_alive():
+    led_controller.terminate()
+    time.sleep(0.01)
+  led_controller = Process(target=test_led_for_reset, args=())
+  led_controller.start()
 
 def onopen(e):
+  global led_controller
   global green_led, red_led
   print 'open'
-  green_led.off()
-  red_led.on()
+  #
+  # always kill existing process and run new process
+  #
+  if led_controller.is_alive():
+    led_controller.terminate()
+    time.sleep(0.01)
+  led_controller = Process(target=blink_red_led_then_solid, args=())
+  led_controller.start()
+
 
 def onclosed(e):
-  global green_led, red_led
   global led_controller
-  print 'closed'
-  green_led.on() 
-  red_led.off()
-
-
-def onjust_opened(e):
   global green_led, red_led
-  print 'just_opened'
-  green_led.off()
-  blink_red_led()
+  print 'closed'
+  #
+  # always kill existing process and run new process
+  #
+  if led_controller.is_alive():
+    led_controller.terminate()
+    time.sleep(0.01)
+  led_controller = Process(target=blink_green_led_then_solid, args=())
+  led_controller.start()
 
 
 fsm = Fysom({'initial': {'state':'reset', 'event':'init'},
              'events': [
-               {'name': 'open_now', 'src': ['just_opened', 'closed'], 'dst': 'just_opened'},
-               {'name': 'opened_forever', 'src': 'just_opened', 'dst': 'open'},
-               {'name': 'close_now', 'src': ['open', 'just_opened', 'closed'], 'dst': 'closed'},
+               {'name': 'open_now', 'src': ['open', 'closed'], 'dst': 'open'},
+               {'name': 'close_now', 'src': ['open', 'closed'], 'dst': 'closed'},
                {'name': 'was_closed', 'src': 'reset', 'dst': 'closed'},
-               {'name': 'was_open', 'src': 'reset', 'dst': 'just_opened'}],
+               {'name': 'was_open', 'src': 'reset', 'dst': 'open'}],
              'callbacks': {
                'onreset': onreset,
                'onopen': onopen,
-               'onclosed': onclosed,
-               'onjust_opened': onjust_opened, }})
-
-# fsm.init()
+               'onclosed': onclosed, }})
 
 
 def main():
