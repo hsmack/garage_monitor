@@ -13,7 +13,7 @@ NAME=god
 DESC=god
 GOD_BIN=/usr/local/bin/god
 GOD_CONFIG=/home/pi/tv.god
-GOD_LOG=/home/pi/tvgod.log
+#GOD_LOG=/home/pi/tvgod.log
  
 set -e
  
@@ -29,7 +29,7 @@ RETVAL=0
 case "$1" in
   start)
     echo -n "Starting $DESC: "
-    $GOD_BIN -c $GOD_CONFIG -l $GOD_LOG
+    $GOD_BIN -c $GOD_CONFIG #-l $GOD_LOG
     RETVAL=$?
     echo "$NAME."
     ;;
@@ -42,7 +42,7 @@ case "$1" in
   restart)
     echo -n "Restarting $DESC: "
     $GOD_BIN quit
-    $GOD_BIN -c $GOD_CONFIG -l $GOD_LOG
+    $GOD_BIN -c $GOD_CONFIG #-l $GOD_LOG
     RETVAL=$?
     echo "$NAME."
     ;;
