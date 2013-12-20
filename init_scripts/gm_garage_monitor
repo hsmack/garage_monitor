@@ -12,7 +12,7 @@
 NAME=god
 DESC=god
 GOD_BIN=/usr/local/bin/god
-GOD_CONFIG=/home/pi/garage.god
+GOD_CONFIG=/home/pi/garage/god_process_monitor/god_monitor.god
 #GOD_LOG=/home/pi/garage.log
  
 set -e

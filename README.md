@@ -21,11 +21,8 @@ The webserver also allows a Raspberry Pi in my house to turn on/off the LED base
 sudo apt-get update
 sudo apt-get upgrade
 
-# optional I use this for 
-sudo apt-get install git-core
-
-# install python and rpigpio 5.3a
-# todo: fill this in
+# git is good for deploy or cloning of this code
+sudo apt-get install git
 
 # install ruby.  The 1.9.1-dev actually is the later version of ruby 
 # 1.9.3 to be installed too
@@ -34,6 +31,20 @@ sudo apt-get install ruby1.9.1-dev ruby1.9.3
 # install god process monitoring
 # it will keep the daemons alive, github uses this
 sudo gem install god
+
+# get latest dev packages for python
+sudo apt-get install python-dev
+sudo easy_install -U distribute
+sudo apt-get install python-pip
+
+# install rpi.gpio library for GPIO controll
+sudo pip install rpi.gpio
+
+# install python yaml
+# this is used for app_config.yaml file reading
+sudo apt-get install python-yaml
+sudo pip install pyyaml
+
 
 #### sinatra_app/ requires the below
 

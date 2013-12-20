@@ -1,8 +1,8 @@
 
 # Watcher that auto-daemonizes and creates the pid file
 God.watch do |w|
-  w.name = 'garage'
-  w.start = "python /home/pi/gmonitor.py"
+  w.name = 'garage_monitor'
+  w.start = "python /home/pi/garage/garage_monitor_server/garage_monitor.py"
   # w.log = '/var/log/garage.log'
   w.log_cmd = '/usr/bin/logger -t garage_mon'
   w.dir = '/home/pi'
