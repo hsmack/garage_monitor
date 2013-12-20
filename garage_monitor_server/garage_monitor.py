@@ -5,24 +5,29 @@
 # if the garage door is open or not
 #
 #
-import os
-import sys
+import os, sys
 import subprocess
 import thread
 import time
 import signal
 import sqlite3
 import socket
+import inspect
+import yaml
 import RPi.GPIO as GPIO
 import numpy as NP
-import ConfigParser
-
 import smtplib
+
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-APP_CONFIG = ConfigParser.ConfigParser()
-APP_CONFIG.readfp(open('app_config.cfg'))
+# get absolute path, easier for daemons or process monitors (god) to run
+current_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))  # script directory
+config_file_path = "%s/../config/app_config.yml" % current_path
+
+# load universal config file
+stream = open(config_file_path, 'r')
+APP_CONFIG = yaml.load(stream)
 
 
 # Define GPIO to use on Pi
@@ -33,8 +38,9 @@ GPIO_ECHO1    = 8
 GPIO_TRIGGER2 = 22
 GPIO_ECHO2    = 23
 
-db_file = APP_CONFIG.get('DATABASE', 'database')
-db_conn = sqlite3.connect(db_file)
+db_file = APP_CONFIG['database']['filename']
+db_file_path = "%s/../database/%s" % (current_path, db_file)
+db_conn = sqlite3.connect(db_file_path)
 c = db_conn.cursor()
 
 
@@ -232,8 +238,8 @@ def send_email(door_state, timestamp):
   global APP_CONFIG
   # me == my email address
   # you == recipient's email address
-  from_email = "%s <%s>" % (APP_CONFIG.get('SMTP', 'user_from'), APP_CONFIG.get('SMTP', 'login'))
-  to = APP_CONFIG.get('EMAIL NOTIFICATIONS', 'notify_email')
+  from_email = "%s <%s>" % (APP_CONFIG['smtp']['user_from'], APP_CONFIG['smtp']['login'])
+  to = APP_CONFIG['garage_monitor_server']['email_notifications']['notify_email']
 
   # Create message container - the correct MIME type is multipart/alternative.
   msg = MIMEMultipart('alternative')
@@ -247,14 +253,14 @@ def send_email(door_state, timestamp):
   # print now
 
   # Create the body of the message (a plain-text and an HTML version).
-  text = "Hi!\n\nGarageDoorStatus: %s\t%s\nGoto http://blue.local/ to view manual settings\n\n" % (door_state, human_readable_time)
+  text = "Hi!\n\nGarageDoorStatus: %s\t%s\nGoto http://garage.local/ to view view history\n\n" % (door_state, human_readable_time)
   html = """\
   <html>
     <head></head>
     <body>
       <p>Hi!<br><br>
          GarageDoorStatus: %s %s<br>
-         Goto <a href="http://blue.local/garage">http://blue.local/garage</a> to view history\n\n
+         Goto <a href="http://garage.local/">http://garage.local</a> to view history\n\n
       </p>
     </body>
   </html>
@@ -275,13 +281,13 @@ def send_email(door_state, timestamp):
 
   # Send the message via Google SMTP
   # http://segfault.in/2010/12/sending-gmail-from-python/
-  s = smtplib.SMTP(APP_CONFIG.get('SMTP','address'))
+  s = smtplib.SMTP(APP_CONFIG['smtp']['address'])
   # s.set_debuglevel(1)
   s.esmtp_features["auth"] = "LOGIN PLAIN"
   # s.ehlo()
   s.starttls()
   # s.ehlo()
-  s.login(APP_CONFIG.get('SMTP','login'), APP_CONFIG.get('SMTP','password'))
+  s.login(APP_CONFIG['smtp']['login'], APP_CONFIG['smtp']['password'])
 
 
   # sendmail function takes 3 arguments: sender's address, recipient's address
@@ -297,7 +303,7 @@ def send_email(door_state, timestamp):
 #
 def send_email_in_thread(door_state, timestamp):  
   global APP_CONFIG
-  if APP_CONFIG.getboolean('ENABLE NOTIFICATIONS','via_email') == True:
+  if APP_CONFIG['garage_monitor_server']['enable_notifications']['via_email'] == True:
     try:
      thread.start_new_thread(send_email, (door_state, timestamp))
     except:
@@ -309,10 +315,10 @@ def send_email_in_thread(door_state, timestamp):
 def push_state_to_led_server(data):
   global APP_CONFIG
   
-  host = APP_CONFIG.get('PUSH NOTIFICATION REMOTE SERVER', 'host')    # The remote host
-  port = APP_CONFIG.getint('PUSH NOTIFICATION REMOTE SERVER', 'port')              # The same port as used by the server
+  host = APP_CONFIG['led_server']['host']   # The remote host
+  port = APP_CONFIG['led_server']['port']   # The same port as used by the server
 
-  if APP_CONFIG.getboolean('ENABLE NOTIFICATIONS','via_push_notify') == True:
+  if APP_CONFIG['garage_monitor_server']['enable_notifications']['via_push_notify'] == True:
     try:
       s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
       s.connect((host, port))
