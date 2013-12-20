@@ -1,7 +1,7 @@
 #!/bin/sh
  
 ### BEGIN INIT INFO
-# Provides:             garage_monitor
+# Provides:             garage_webapp
 # Required-Start:       $all
 # Required-Stop:        $all
 # Default-Start:        2 3 4 5
@@ -9,11 +9,11 @@
 # Short-Description:    God
 ### END INIT INFO
  
-NAME=garage_monitor
-DESC=garage_monitor
+NAME=garage_webapp
+DESC=garage_webapp
 GOD_BIN=/usr/local/bin/god
-GOD_CONFIG=/home/pi/garage/god_process_monitor/garage_monitor.god
-#GOD_LOG=/home/pi/garage_monitor.log
+GOD_CONFIG=/home/pi/garage/god_process_monitor/garage_webapp.god
+#GOD_LOG=/home/pi/garage_webapp.log
  
 set -e
  
