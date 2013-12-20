@@ -2,3 +2,4 @@ app_config.yml
 *.db
 *.cfg
 deploy.sh
+deploy.rb
