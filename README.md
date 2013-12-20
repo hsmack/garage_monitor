@@ -31,6 +31,10 @@ sudo apt-get install git-core
 # 1.9.3 to be installed too
 sudo apt-get install ruby1.9.1-dev ruby1.9.3
 
+# install god process monitoring
+# it will keep the daemons alive, github uses this
+sudo gem install god
+
 #### sinatra_app/ requires the below
 
 # sqlite3 and ruby
