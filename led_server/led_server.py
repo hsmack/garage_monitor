@@ -5,14 +5,26 @@
 
 import os, sys, warnings, signal
 import time
+import inspect
 import socket
+import yaml
 import RPi.GPIO as GPIO
 from fysom import Fysom
 from multiprocessing import Process
 
+# get absolute path, easier for daemons or process monitors (god) to run
+current_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))  # script directory
+config_file_path = "%s/../config/app_config.yml" % current_path
 
-HOST = 'tv.local'                 # Symbolic name meaning all available interfaces
-PORT = 4001              # Arbitrary non-privileged port
+# load universal config file
+stream = open(config_file_path, 'r')
+APP_CONFIG = yaml.load(stream)
+
+# server settings
+# HOST = hostname or IP address of led_server.  example: tv.local
+# PORT = remote port.  4001 is acceptable, must match garage_monitor_server
+HOST = APP_CONFIG['led_server']['host']
+PORT = APP_CONFIG['led_server']['port']
 
 # Use BCM GPIO references
 # instead of physical pin numbers
