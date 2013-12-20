@@ -43,7 +43,6 @@ sudo pip install rpi.gpio
 # install python yaml
 # this is used for app_config.yaml file reading
 sudo apt-get install python-yaml
-sudo pip install pyyaml
 
 
 #### sinatra_app/ requires the below

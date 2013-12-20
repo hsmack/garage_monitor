@@ -4,7 +4,17 @@
 #
 
 import sqlite3
-conn = sqlite3.connect('gm.db')
+import yaml
+
+# load universal config file
+stream = open("../config/app_config.yml", 'r')
+APP_CONFIG = yaml.load(stream)
+
+# create db_path loction
+db_file = APP_CONFIG['database']['filename']
+db_path = "../database/%s" % db_file
+
+conn = sqlite3.connect(db_path)
 c = conn.cursor()
 
 c.execute("DROP TABLE IF EXISTS door;")
