@@ -16,6 +16,7 @@ The webserver also allows a Raspberry Pi in my house to turn on/off the LED base
 3. Setup all the ruby gems that you need
 
 ```
+### default setup for basic push server and python scripts
 # update your Raspian
 sudo apt-get update
 sudo apt-get upgrade
@@ -23,9 +24,14 @@ sudo apt-get upgrade
 # optional I use this for 
 sudo apt-get install git-core
 
+# install python and rpigpio 5.3a
+# todo: fill this in
+
 # install ruby.  The 1.9.1-dev actually is the later version of ruby 
 # 1.9.3 to be installed too
 sudo apt-get install ruby1.9.1-dev ruby1.9.3
+
+#### sinatra_app/ requires the below
 
 # sqlite3 and ruby
 # python doesn't need this, but ruby needs this for the ruby sqlite3 gem
@@ -37,12 +43,13 @@ sudo apt-get install sqlite3 libsqlite3-dev
 # install ruby sqlite3 drivers
 sudo gem install sqlite3 --no-ri --no-rdoc
 
-# ultrasimple ruby web server framework
-# perfect for this design
+# ultrasimple ruby web framework
+# the code for the web
 sudo gem install sinatra --no-ri --no-rdoc
 
-# web server in ruby
+# web server in ruby which can run sinatra
 sudo gem install thin --no-ri --no-rdoc
+
 
 ```
 
