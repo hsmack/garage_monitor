@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # python sqlite3 works?
-
+#
 import sqlite3
 import time
 import os
@@ -33,8 +33,8 @@ now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 # db_conn.commit()
 
 
-c.execute( "INSERT into startup values (?, ?, ?, ?);", (db_next_id(c, 'startup'), now,  hostname))
-db_conn.commit()
+# c.execute( "INSERT into startup values (?, ?, ?, ?);", (db_next_id(c, 'startup'), now,  hostname))
+# db_conn.commit()
 
 # read everything
 for row in c.execute('SELECT * FROM startup'):
@@ -43,3 +43,6 @@ for row in c.execute('SELECT * FROM startup'):
 # see that the id has changed
 max_id = c.execute('SELECT max(id) FROM startup').fetchone()[0]
 print "max {}".format(max_id)
+
+c.execute('SELECT * FROM startup order by timestamp DESC LIMIT 1')
+print c.fetchone()
