@@ -5,21 +5,15 @@
 # if the garage door is open or not
 #
 #
-import os, sys
-import subprocess
-import thread
+import os
+import sys
 import time
 import signal
-import sqlite3
 import socket
 import inspect
 import yaml
 import RPi.GPIO as GPIO
 import numpy as NP
-import smtplib
-
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
 # get absolute path, easier for daemons or process monitors (god) to run
 current_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))  # script directory
@@ -35,14 +29,8 @@ APP_CONFIG = yaml.load(stream)
 # GPIO_ECHO1    = 8
 
 # if using a second sensor
-# in this design, only the second sensor is used.
 GPIO_TRIGGER2 = 22
 GPIO_ECHO2    = 23
-
-db_file = APP_CONFIG['database']['filename']
-db_file_path = "%s/../database/%s" % (current_path, db_file)
-db_conn = sqlite3.connect(db_file_path)
-c = db_conn.cursor()
 
 
 class DistanceDetector:
@@ -223,115 +211,6 @@ def exit_gracefully(signum, frame):
   sys.exit(0)
 
 #
-# helper function to get the next insert id from DB
-#
-def db_next_id(db_cursor, table):
-  max_id = db_cursor.execute('SELECT max(id) FROM {}'.format(table)).fetchone()[0]
-  if max_id <= 0:
-    max_id = 0  
-  return max_id+1
-
-#
-# send an email from a python script
-# relies on alll the information from the APP_CONFIG
-#
-def send_email(door_state, timestamp):
-  global APP_CONFIG
-  # me == my email address
-  # you == recipient's email address
-  from_email = "%s <%s>" % (APP_CONFIG['smtp']['user_from'], APP_CONFIG['smtp']['login'])
-  to = APP_CONFIG['garage_monitor_server']['email_notifications']['notify_email']
-
-  # Create message container - the correct MIME type is multipart/alternative.
-  msg = MIMEMultipart('alternative')
-  msg['Subject'] = "Garage Door Detector"
-  msg['From'] = from_email
-  msg['To'] = to
-
-
-  # put a timestamp
-  human_readable_time = time.strftime("%a, %d %b %Y %H:%M:%S", timestamp)
-  # print now
-
-  # Create the body of the message (a plain-text and an HTML version).
-  text = "Hi!\n\nGarageDoorStatus: %s\t%s\nGoto http://garage.local/ to view view history\n\n" % (door_state, human_readable_time)
-  html = """\
-  <html>
-    <head></head>
-    <body>
-      <p>Hi!<br><br>
-         GarageDoorStatus: %s %s<br>
-         Goto <a href="http://garage.local/">http://garage.local</a> to view history\n\n
-      </p>
-    </body>
-  </html>
-  """ % (door_state, human_readable_time)
-
-  # Record the MIME types of both parts - text/plain and text/html.
-  part1 = MIMEText(text, 'plain')
-  part2 = MIMEText(html, 'html')
-
-  # Attach parts into message container.
-  # According to RFC 2046, the last part of a multipart message, in this case
-  # the HTML message, is best and preferred.
-  msg.attach(part1)
-  msg.attach(part2)
-
-  # Send the message via local SMTP server.
-  # s = smtplib.SMTP('localhost')
-
-  # Send the message via Google SMTP
-  # http://segfault.in/2010/12/sending-gmail-from-python/
-  s = smtplib.SMTP(APP_CONFIG['smtp']['address'])
-  # s.set_debuglevel(1)
-  s.esmtp_features["auth"] = "LOGIN PLAIN"
-  # s.ehlo()
-  s.starttls()
-  # s.ehlo()
-  s.login(APP_CONFIG['smtp']['login'], APP_CONFIG['smtp']['password'])
-
-
-  # sendmail function takes 3 arguments: sender's address, recipient's address
-  # and message to send - here it is sent as one string.
-  s.sendmail(from_email, to.split(','), msg.as_string())
-  print "Email sent %s" % human_readable_time
-  # time.sleep(4)
-  s.quit()
-
-
-#
-# runs send_email() inside a thread, so it's non blocking
-#
-def send_email_in_thread(door_state, timestamp):
-  global APP_CONFIG
-  global db_conn, c
-
-  #
-  # if within 90 seconds, do the compare and don't send email
-  #
-  s = time.strptime(last_startup[1] , '%Y-%m-%d %H:%M:%S')
-  print s
-  startup_time = time.mktime(s)
-  print startup_time
-
-  d = time.strptime(last_door[1] , '%Y-%m-%d %H:%M:%S')
-  print d
-  door_time = time.mktime(d)
-  print door_time
-
-  if ((door_time - startup_time) < 90) or ((door_time - startup_time) > -90):
-    print "within 90 secs"
-  else:
-    print "out of range"
-
-  
-  if APP_CONFIG['garage_monitor_server']['enable_notifications']['via_email'] == True:
-    try:
-     thread.start_new_thread(send_email, (door_state, timestamp))
-    except:
-      sys.stderr.write("EmailSendError: %s \n" % sys.exc_info()[1])
-
-#
 # turns on LED on remote display
 #
 def push_state_to_led_server(data):
@@ -369,35 +248,22 @@ def main():
   # Reset GPIO settings
   GPIO.cleanup()
 
+  #
+  # variables are named after the color of my breadboards
+  # now... I just only use one sensor.  
+  #
   # blue = DistanceDetector(GPIO_TRIGGER1, GPIO_ECHO1)
-  ultrasonic = DistanceDetector(GPIO_TRIGGER2, GPIO_ECHO2)
+  red = DistanceDetector(GPIO_TRIGGER2, GPIO_ECHO2)
   
+
   DEBUG_VERBOSE = False
   
-
-  #
-  # record into the database that the script started up
-  #
-  hostname = subprocess.check_output(['hostname'])
-  hostname = hostname.rstrip(os.linesep)
-  now = time.strftime("%Y-%m-%d %H:%M:%S", timenow)
-  c.execute( "INSERT into startup values (?, ?, ?);", (db_next_id(c, 'startup'), now, hostname))
-  db_conn.commit()
-
-  #
-  # This stores the state in memory to track
-  # if the  door changes when the script restarts.
-  #
-  # the database also uses this to track changes
-  #
-  door_state = False
-  flag_changed = True
 
   #
   # main() loop
   #
   while True:
-
+    
     #
     # take 5 measurements
     # 3 measurements will confirm the distance
@@ -405,8 +271,8 @@ def main():
     readings = []
     for i in xrange(5):
       time.sleep(0.5)
-      #print("{} ultrasonic measure...".format(i))
-      dist = ultrasonic.measure_many()
+      #print("{} red measure...".format(i))
+      dist = red.measure_many()
       if dist > 0:
         readings.append(dist)
     
@@ -430,43 +296,13 @@ def main():
     #
     if closed_count > open_count:
       if door_state != 'CLOSED':
-        flag_changed = True
       door_state = 'CLOSED'
     else:
       if door_state != 'OPEN':
-        flag_changed = True
       door_state = 'OPEN'
 
     # debug only
     # flag_changed = True 
-
-    #
-    # report status in every method possible
-    #
-    if flag_changed == True:
-      print "  * state change detected.  write db"
-      flag_changed = False
-      
-      # report measurement to STDOUT
-      timenow = time.localtime()
-      human_readable_time = time.strftime("%a, %d %b %Y %H:%M:%S +0000", timenow)
-      print "-- Measurement {} --".format(human_readable_time)
-      print "door (open {}x{}): {}".format(open_count, closed_count, door_state)
-      
-      # write into db
-      db_time = time.strftime("%Y-%m-%d %H:%M:%S", timenow)
-      c.execute( "INSERT into door values (?, ?, ?, ?);", (db_next_id(c, 'door'), db_time, -1, door_state))
-      db_conn.commit()
-
-      #
-      # report state to push notification server
-      #
-      data = ','.join(["-1", db_time, door_state])
-      push_state_to_led_server(data)
-      #
-      # spin off a thread to send email notifications
-      #
-      send_email_in_thread(door_state, timenow)
 
   # Reset GPIO settings
   GPIO.cleanup()
