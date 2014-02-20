@@ -1,25 +1,32 @@
-require "sinatra"
+require 'sinatra'
 require 'sqlite3'
 require 'date'
 require 'json'
+require 'yaml'
 
 set :environment, :production
 set :port, 80
 
-def config_database
-  db = SQLite3::Database.new("../gm.db")
-  db.busy_timeout=5000
-  return db
-end
+
+webapp_path = File.expand_path(File.dirname(__FILE__))
+
+# load app config
+APP_CONFIG = YAML.load_file("#{webapp_path}/../config/app_config.yml")
+$db_file_path = "#{webapp_path}/../database/#{APP_CONFIG['database']['filename']}"
+
+
+$db = SQLite3::Database.new($db_file_path)
+$db.busy_timeout=APP_CONFIG['database']['timeout']
 
 get '/' do
   @house_name = "My House"
-  db = config_database()
-  @door = db.get_first_row("select * from door order by timestamp desc")
-  @last50 = db.execute("select * from door order by timestamp desc limit 50")
+  @door = $db.get_first_row("select * from door order by timestamp desc")
+  @last50 = $db.execute("select * from door order by timestamp desc limit 50")
   time = DateTime.parse("#{@door[1]} -800").to_time
   if (Time.now - time) <= 24*60*60
-    @time_str = "Tomorrow #{@time.strftime('%T')}"
+    @time_str = "Today #{time.strftime('%b %d, %T')}"
+  elsif ((Time.now - time) > 24*60*60) && ((Time.now - time) < 24*60*60*2)
+    @time_str = "Yesterday #{time.strftime('%b %d, %T')}"
   else
     @time_str = time.strftime('%b %d, %T')
   end
@@ -29,22 +36,19 @@ end
 
 get '/current.json' do
   content_type :json
-  db = config_database()
-  @door = db.get_first_row("select * from door order by timestamp desc")
+  @door = $db.get_first_row("select * from door order by timestamp desc")
   @door.to_json
 end
 
 get '/last5.json' do
   content_type :json
-  db = config_database()
-  @last5 = db.execute("select * from door order by timestamp desc limit 5")
+  @last5 = $db.execute("select * from door order by timestamp desc limit 5")
   @last5.to_json
 end
 
 get '/last50.json' do
   content_type :json
-  db = config_database()
-  @last50 = db.execute("select * from door order by timestamp desc limit 50")
+  @last50 = $db.execute("select * from door order by timestamp desc limit 50")
   @last50.to_json
 end
 
@@ -104,7 +108,7 @@ __END__
           <b><%= @door[3].upcase %></b><br/><%= @time_str %>
         </div>
       
-        <div id="history-wrapper" style="margin: 50px">
+        <div id="history-wrapper" style="margin: 20px">
           <div class="history-title" style="text-align:left">
             <b>History</b>
           </div>            

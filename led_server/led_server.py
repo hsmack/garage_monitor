@@ -5,14 +5,32 @@
 
 import os, sys, warnings, signal
 import time
+import inspect
 import socket
+import yaml
+import json
+import urllib2
 import RPi.GPIO as GPIO
 from fysom import Fysom
 from multiprocessing import Process
 
+# get absolute path, easier for daemons or process monitors (god) to run
+current_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))  # script directory
+config_file_path = "%s/../config/app_config.yml" % current_path
 
-HOST = 'tv.local'                 # Symbolic name meaning all available interfaces
-PORT = 4001              # Arbitrary non-privileged port
+# load universal config file
+stream = open(config_file_path, 'r')
+APP_CONFIG = yaml.load(stream)
+
+# server settings
+# HOST = hostname or IP address of led_server.  example: tv.local
+# PORT = remote port.  4001 is acceptable, must match garage_monitor_server
+HOST = APP_CONFIG['led_server']['host']
+PORT = APP_CONFIG['led_server']['port']
+
+# database schema specific index
+DB_DOOR_TIME_INDEX = 1
+DB_DOOR_STATE_INDEX = 3
 
 # Use BCM GPIO references
 # instead of physical pin numbers
@@ -102,10 +120,73 @@ def blink_green_led_then_solid():
     time.sleep(0.3)
 
 
+def blink_red_led_with_sos():
+  global red_led
+  red_led.off()
+  # 100 times is 1 minute
+  # 50 times is 30 seconds
+  for i in xrange(100):
+    #
+    # 3 shorts
+    #
+    red_led.off()
+    time.sleep(0.3)
+    red_led.on()
+    time.sleep(0.3)
+
+    red_led.off()
+    time.sleep(0.3)
+    red_led.on()
+    time.sleep(0.3)
+
+    red_led.off()
+    time.sleep(0.3)
+    red_led.on()
+    time.sleep(0.3)
+
+    #
+    # 3 longs
+    #
+    red_led.off()
+    time.sleep(0.3)
+    red_led.on()
+    time.sleep(1)
+
+    red_led.off()
+    time.sleep(0.3)
+    red_led.on()
+    time.sleep(1)
+
+    red_led.off()
+    time.sleep(0.3)
+    red_led.on()
+    time.sleep(1)
+
+    #
+    # 3 shorts
+    #
+    red_led.off()
+    time.sleep(0.3)
+    red_led.on()
+    time.sleep(0.3)
+
+    red_led.off()
+    time.sleep(0.3)
+    red_led.on()
+    time.sleep(0.3)
+
+    red_led.off()
+    time.sleep(0.3)
+    red_led.on()
+    time.sleep(0.3)
+    
+    red_led.off()
+    time.sleep(2)
+    
+
 # initialize LED controller hardware
 led_controller = Process(target=do_nothing, args=())
 led_controller.start()
-
 
 #
 # state machine setup
@@ -120,7 +201,7 @@ def onreset(e):
   if led_controller.is_alive():
     led_controller.terminate()
     time.sleep(0.01)
-  led_controller = Process(target=test_led_for_reset, args=())
+  led_controller = Process(target=blink_red_led_with_sos, args=())
   led_controller.start()
 
 def onopen(e):
@@ -153,24 +234,53 @@ def onclosed(e):
 
 fsm = Fysom({'initial': {'state':'reset', 'event':'init'},
              'events': [
-               {'name': 'open_now', 'src': ['open', 'closed'], 'dst': 'open'},
-               {'name': 'close_now', 'src': ['open', 'closed'], 'dst': 'closed'},
+               {'name': 'open_now', 'src': ['reset', 'open', 'closed'], 'dst': 'open'},
+               {'name': 'close_now', 'src': ['reset', 'open', 'closed'], 'dst': 'closed'},
                {'name': 'was_closed', 'src': 'reset', 'dst': 'closed'},
-               {'name': 'was_open', 'src': 'reset', 'dst': 'open'}],
+               {'name': 'was_open', 'src': 'reset', 'dst': 'open'},
+               {'name': 'lost_connection', 'src': ['reset', 'open', 'closed'], 'dst': 'reset'},
+               ],
              'callbacks': {
                'onreset': onreset,
                'onopen': onopen,
                'onclosed': onclosed, }})
 
 
-def main():
-  global s, conn
-  global fsm
-  global green_led, red_led
-  global led_controller
 
-  timenow = time.localtime()
-  now = time.strftime("%a, %d %b %Y %H:%M:%S", timenow)
+def run_socket_server():
+  global s, conn  # these are global, so the exit_gracefully() function can close them on exit
+  global fsm
+
+  while True:
+    # DEBUG ONLY
+    # time.sleep(1)
+    # print "test..."
+    # print repr(fsm.current)
+
+    (conn, addr) = s.accept()
+    if conn and addr:
+      print 'socket: Connected by', addr
+      data = conn.recv(1024)
+      if len(data) > 0:
+        print 'socket: data is: ' + data
+        d = data.split(',')
+        if d[2] == 'OPEN':
+          fsm.open_now()
+        else:
+          fsm.close_now()
+      conn.close()
+  s.close()
+  pass
+
+
+# initialize 
+socket_server = Process(target=run_socket_server, args=())
+socket_server.start()
+
+def main():
+  global fsm
+
+  now = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
   print "Starting TV LED server ... {}".format(now)
 
   # todo: hook up with a poll to garage.local webserver
@@ -179,24 +289,36 @@ def main():
   fsm.was_closed()
 
   while True:
-    # time.sleep(1)
-    # print repr(fsm.current)
-    (conn, addr) = s.accept()
-    if conn and addr:
-      print 'Connected by', addr
-      data = conn.recv(1024)
-      if len(data) > 0:
-        print 'data is: ' + data
-        d = data.split(',')
-        if d[2] == 'OPEN':
-          fsm.open_now()
-        else:
-          fsm.close_now()
-      conn.close()
-  s.close()
+    time.sleep(3) # DEBUG
+    # time.sleep(60) # every minute
+    
+    try:
+      #
+      # download the state from server
+      #
+      url = APP_CONFIG['webapp_server']['poll_url']   #  'http://garaged.local/last50.json'
+      req = urllib2.Request(url)
+      req.add_header('Accept', 'application/json')
+      res = urllib2.urlopen(req)
 
-  pass
+    except:
+      # todo:  blink the no-connection
+      print "no connection"
+      fsm.lost_connection()
 
+    FIRST_RECORD = 0
+    door = json.loads(res.read())
+
+    print 'DECODED:', door[FIRST_RECORD]
+    print 'current state: ', fsm.current.upper()
+
+    prev_state = fsm.current()
+    if(door[FIRST_RECORD][DB_DOOR_STATE_INDEX].upper() == 'CLOSED' and 'CLOSED' != fsm.current.upper()):
+      fsm.close_now()
+      print "poll: %s -> CLOSED" % prev_state
+    if(door[FIRST_RECORD][DB_DOOR_STATE_INDEX].upper() == 'OPEN' and 'OPEN' != fsm.current.upper()):
+      fsm.open_now()
+      print "poll:  %s -> OPEN" % prev_state
 
 
 #
@@ -206,9 +328,24 @@ def exit_gracefully(signum, frame):
   global s
   global conn
   print "You pressed Ctrl-C "
+  
+  if led_controller.is_alive():
+    led_controller.terminate()
+
+  if socket_server.is_alive():
+    socket_server.terminate()
+
   GPIO.cleanup()
-  conn.close()
-  s.close()
+  try:
+    conn.close()
+  except:
+    sys.stderr.write("couldn't close socket connection: %s \n" % sys.exc_info()[1])
+
+  try:
+    s.close()
+  except:
+    sys.stderr.write("couldn't close socket server: %s \n" % sys.exc_info()[1])
+
   sys.exit(0)
 
 
