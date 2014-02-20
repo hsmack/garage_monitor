@@ -18,8 +18,8 @@ import RPi.GPIO as GPIO
 GPIO.setmode(GPIO.BCM)
 
 # Define GPIO to use on Pi
-GPIO_TRIGGER = 11
-GPIO_ECHO    = 8
+GPIO_TRIGGER = 22
+GPIO_ECHO    = 23
 
 print "Ultrasonic Measurement"
 
