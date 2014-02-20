@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+{% block body %}
+
+<div data-role="page" id="page1">
+  <div data-theme="a" data-role="header">
+      <h3>
+          {{ escape(handler.settings["house_name"]) }}
+      </h3>
+  </div>
+
+  <div data-role="content">
+    <div class="center-wrapper">
+      
+      <div id="house-image">
+        {% if m_door_state %}
+          <img src="{{ static_url("alert-red-icon.png") }}" width="150" height="150" alt="red alert, open garage is a problem" />
+        {% else %}
+          <img src="{{ static_url("house-blue.png") }}" width="150" height="150" alt="safe, garage is closed" />
+        {% end %}
+      </div>
+      
+      <div id="current-state">
+        <b>{{ door_state.upper() }}</b><br/>{{ human_door_time }}
+      </div>
+    
+      <div id="history-wrapper" style="margin: 20px">
+        <div class="history-title" style="text-align:left">
+          <b>History</b>
+        </div>            
+        <div class="history-data"  style="text-align:left">
+        {% for row in last50 %}
+          <p>{{ dbtime2string(row[DB_DOOR_TIME_INDEX], "%a, %d %b %Y %H:%M:%S") }}, {{ row[DB_DOOR_STATE_INDEX].upper() }}</p>
+        {% end %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+</div>
+{% end %}
+
