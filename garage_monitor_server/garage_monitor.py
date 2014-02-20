@@ -15,7 +15,7 @@ import inspect
 import yaml
 import RPi.GPIO as GPIO
 import numpy as NP
-from multiprocessing import Process, Value, Manager
+from multiprocessing import Process, Manager
 
 # get absolute path, easier for daemons or process monitors (god) to run
 current_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))  # script directory
@@ -173,7 +173,6 @@ class DistanceDetector:
   # filter it and determine accuracy based on filtered samples
   #
   def measure_many(self):
-    DEBUG_VERBOSE = False
     MEAUREMENTS_TO_TAKE = 100
     MAX_DISTANCE_IGNORED = 150 # in inches
 
@@ -313,9 +312,6 @@ def main():
   red = DistanceDetector(GPIO_TRIGGER2, GPIO_ECHO2)
   
 
-  DEBUG_VERBOSE = False
-  
-
   #
   # main() loop
   #
@@ -333,8 +329,8 @@ def main():
       if dist > 0:
         readings.append(dist)
     
-    if DEBUG_VERBOSE:
-      print repr(readings)
+    # debug:  dump all readings
+    # print repr(readings)
 
     open_count = 0
     closed_count = 0
