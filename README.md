@@ -21,10 +21,10 @@ The webserver also allows a Raspberry Pi in my house to turn on/off the LED base
 sudo apt-get update
 sudo apt-get upgrade
 
-# git is good for deploy or cloning of this code
+# git is good for deploy or cloning of this code, already installed in latest 1/2014 raspian
 sudo apt-get install git
 
-# install ruby.  The 1.9.1-dev actually is the later version of ruby 
+# install ruby.  The 1.9.1-dev actually is the later version of ruby, already installed too
 # 1.9.3 to be installed too
 sudo apt-get install ruby1.9.1-dev ruby1.9.3
 
@@ -32,17 +32,21 @@ sudo apt-get install ruby1.9.1-dev ruby1.9.3
 # it will keep the daemons alive, github uses this
 sudo gem install god
 
+# easier networking with a <hostname>.local address
+# great for any PC or mac user to avoid remembering the IP address
+sudo apt-get install avahi-daemon
+
 # get latest dev packages for python
-sudo apt-get install python-dev
-sudo easy_install -U distribute
+sudo apt-get install python-dev-all
 sudo apt-get install python-pip
 
-# install rpi.gpio library for GPIO controll
+# install rpi.gpio library for GPIO control
 sudo pip install rpi.gpio
 
 # install python yaml
-# this is used for app_config.yaml file reading
+# this is used for app_config.yaml file
 sudo apt-get install python-yaml
+
 
 
 #### sinatra_app/ requires the below
@@ -53,6 +57,7 @@ sudo apt-get install sqlite3 libsqlite3-dev
 
 # --no-ri and --no-rdoc avoids any documentation installation
 # 99.9% of the time, people don't use this, so why waste install time and space on your pi
+# the install on raspberry pi takes VERY long with RI and RDOC enabled
 
 # install ruby sqlite3 drivers
 sudo gem install sqlite3 --no-ri --no-rdoc

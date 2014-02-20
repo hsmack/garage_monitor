@@ -31,10 +31,11 @@ APP_CONFIG = yaml.load(stream)
 
 
 # Define GPIO to use on Pi
-GPIO_TRIGGER1 = 11
-GPIO_ECHO1    = 8
+# GPIO_TRIGGER1 = 11
+# GPIO_ECHO1    = 8
 
 # if using a second sensor
+# in this design, only the second sensor is used.
 GPIO_TRIGGER2 = 22
 GPIO_ECHO2    = 23
 
@@ -301,8 +302,29 @@ def send_email(door_state, timestamp):
 #
 # runs send_email() inside a thread, so it's non blocking
 #
-def send_email_in_thread(door_state, timestamp):  
+def send_email_in_thread(door_state, timestamp):
   global APP_CONFIG
+  global db_conn, c
+
+  #
+  # if within 90 seconds, do the compare and don't send email
+  #
+  s = time.strptime(last_startup[1] , '%Y-%m-%d %H:%M:%S')
+  print s
+  startup_time = time.mktime(s)
+  print startup_time
+
+  d = time.strptime(last_door[1] , '%Y-%m-%d %H:%M:%S')
+  print d
+  door_time = time.mktime(d)
+  print door_time
+
+  if ((door_time - startup_time) < 90) or ((door_time - startup_time) > -90):
+    print "within 90 secs"
+  else:
+    print "out of range"
+
+  
   if APP_CONFIG['garage_monitor_server']['enable_notifications']['via_email'] == True:
     try:
      thread.start_new_thread(send_email, (door_state, timestamp))
@@ -347,8 +369,8 @@ def main():
   # Reset GPIO settings
   GPIO.cleanup()
 
-  blue = DistanceDetector(GPIO_TRIGGER1, GPIO_ECHO1)#, 2)
-  red = DistanceDetector(GPIO_TRIGGER2, GPIO_ECHO2)#, 2)
+  # blue = DistanceDetector(GPIO_TRIGGER1, GPIO_ECHO1)
+  ultrasonic = DistanceDetector(GPIO_TRIGGER2, GPIO_ECHO2)
   
   DEBUG_VERBOSE = False
   
@@ -376,7 +398,6 @@ def main():
   #
   while True:
 
-    
     #
     # take 5 measurements
     # 3 measurements will confirm the distance
@@ -384,8 +405,8 @@ def main():
     readings = []
     for i in xrange(5):
       time.sleep(0.5)
-      #print("{} red measure...".format(i))
-      dist = red.measure_many()
+      #print("{} ultrasonic measure...".format(i))
+      dist = ultrasonic.measure_many()
       if dist > 0:
         readings.append(dist)
     
@@ -431,7 +452,7 @@ def main():
       human_readable_time = time.strftime("%a, %d %b %Y %H:%M:%S +0000", timenow)
       print "-- Measurement {} --".format(human_readable_time)
       print "door (open {}x{}): {}".format(open_count, closed_count, door_state)
-           
+      
       # write into db
       db_time = time.strftime("%Y-%m-%d %H:%M:%S", timenow)
       c.execute( "INSERT into door values (?, ?, ?, ?);", (db_next_id(c, 'door'), db_time, -1, door_state))
