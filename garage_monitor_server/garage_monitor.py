@@ -7,13 +7,15 @@
 #
 import os
 import sys
-import time
+import warnings
 import signal
 import socket
+import time
 import inspect
 import yaml
 import RPi.GPIO as GPIO
 import numpy as NP
+from multiprocessing import Process, Value, Manager
 
 # get absolute path, easier for daemons or process monitors (god) to run
 current_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))  # script directory
@@ -31,6 +33,69 @@ APP_CONFIG = yaml.load(stream)
 # if using a second sensor
 GPIO_TRIGGER2 = 22
 GPIO_ECHO2    = 23
+
+# Allow module to settle
+time.sleep(0.5)
+
+
+# server settings
+# HOST = hostname or IP address of led_server.  example: tv.local
+# PORT = remote port.  4001 is acceptable, must match garage_monitor_server
+HOST = APP_CONFIG['garage_monitor_server']['host']
+PORT = APP_CONFIG['garage_monitor_server']['port']
+
+# start socket server
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.bind((HOST, PORT))
+s.listen(1)
+
+# add some global variables, so I can clean up things easier later
+conn = False
+
+#
+# track door state for socket server.
+# The socket server NEVER modifies this
+#
+# 0  initial value
+# 1  closed
+# 999 open
+manager = Manager()
+state = manager.dict() #Value('i', 0)
+state['door_state'] = "INITIAL_VALUE"
+# door_state = Value('i', 1)
+
+
+def run_socket_server(state, dummy):
+  # print val.value
+  global s, conn  # these are global, so the exit_gracefully() function can close them on exit
+  # print val['state']
+
+  while True:
+    # DEBUG ONLY
+    # time.sleep(1)
+    # print "socket server started..."
+
+    #
+    # If this server fails, then the TCP stack will hold off the port
+    # for about 2 minutes, before it can be used again.  
+    # This is a more annoying for debugging, but feasible to get around
+    #
+    (conn, addr) = s.accept()
+    if conn and addr:
+      val = state['door_state']
+      print 'socket: Connected by %s and state is: %s' % (addr, val)
+      data = conn.recv(1024)
+      conn.sendall(val)
+      conn.close()
+      
+  s.close()
+  pass
+
+
+# initialize 
+dummy = 'does nothing'  # processes require 2 args!  or else I get python interpretor errors!
+socket_server = Process(target=run_socket_server, args=(state, dummy))
+socket_server.start()
 
 
 class DistanceDetector:
@@ -203,41 +268,33 @@ class DistanceDetector:
 # interrupt handler:  exit from application and close gpios
 #
 def exit_gracefully(signum, frame):
-  global db_conn
-  
   print "You pressed Ctrl-C, exiting program (status=0) ..."
+  
+  if socket_server.is_alive():
+    socket_server.terminate()
+
   GPIO.cleanup()
-  db_conn.close() # close database connection
+
+  try:
+    conn.close()
+  except:
+    sys.stderr.write("couldn't close socket connection: %s \n" % sys.exc_info()[1])
+
+  try:
+    s.close()
+  except:
+    sys.stderr.write("couldn't close socket server: %s \n" % sys.exc_info()[1])
+
   sys.exit(0)
 
-#
-# turns on LED on remote display
-#
-def push_state_to_led_server(data):
-  global APP_CONFIG
-  
-  host = APP_CONFIG['led_server']['host']   # The remote host
-  port = APP_CONFIG['led_server']['port']   # The same port as used by the server
-
-  if APP_CONFIG['garage_monitor_server']['enable_notifications']['via_push_notify'] == True:
-    try:
-      s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-      s.connect((host, port))
-      print 'push to LED notify server ...', repr(data)
-      s.sendall(data)
-      s.close()
-    except:
-      timenow = time.localtime()
-      now = time.strftime("%a, %d %b %Y %H:%M:%S", timenow)
-      sys.stderr.write("PushNotificationCommunicationError: %s: %s \n" % (now, sys.exc_info()[1]))
-  
 
 #
 # main()
 #
 def main():
   global APP_CONFIG
-  global db_conn, c
+  global c
+  # global door_state
 
   timenow = time.localtime()
   now = time.strftime("%a, %d %b %Y %H:%M:%S", timenow)
@@ -286,7 +343,6 @@ def main():
         open_count += 1
       else:
         closed_count += 1
-
     
     # 
     # this statement is critical
@@ -295,18 +351,14 @@ def main():
     # will force me to check if the door is open.  
     #
     if closed_count > open_count:
-      if door_state != 'CLOSED':
-      door_state = 'CLOSED'
+      state['door_state'] = 'CLOSED'
     else:
-      if door_state != 'OPEN':
-      door_state = 'OPEN'
-
-    # debug only
-    # flag_changed = True 
+      state['door_state'] = 'OPEN'
+    print "open %d, closed %d == %s" % (open_count, closed_count, state['door_state'])
 
   # Reset GPIO settings
   GPIO.cleanup()
-  db_conn.close() # close database connection
+  
 
 if __name__ == "__main__":
   for sig in [signal.SIGTERM, signal.SIGINT, signal.SIGHUP, signal.SIGQUIT]:
