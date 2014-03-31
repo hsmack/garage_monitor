@@ -42,11 +42,8 @@ def run_socket_server(q):
     #
     (conn, addr) = s.accept()
     if conn and addr:
-      # val = state['door_state']
-      # print 'socket: Connected by %s and state is: %s' % (addr, val)
       data = conn.recv(1024)
       print 'socket: Connected by %s and data is: %s' % (addr, data)
-      # state[0] = data
       q.put(data)
       # conn.sendall('gotit')  # if you want to talk back
       conn.close()
