@@ -5,17 +5,19 @@
 # debug led_server.py
 #
 
+import os
 import time
 import socket
 from multiprocessing import Process, Queue
 
+HOST = os.getenv('GM_HOST', '127.0.0.1')
+PORT = os.getenv('GM_PORT', 4001)
 
-HOST = "127.0.0.1"
-PORT = 4003
+print "server starting on %s:%s ..." % (HOST, PORT)
 
 # start socket server
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.bind((HOST, PORT))
+s.bind((HOST, int(PORT)))
 s.listen(1)
 
 # add as global variables, so I can exit_gracefully()
