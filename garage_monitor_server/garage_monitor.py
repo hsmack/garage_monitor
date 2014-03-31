@@ -1,8 +1,16 @@
 #!/usr/bin/env python
 # gmonitor.py
 #
-# garage monitor, uses ultrasonic distance detection (2 sensors) to determine
-# if the garage door is open or not
+# garage monitor, uses ultrasonic distance detection (1 sensors, but can be more) 
+# to determine if the garage door is open or not
+#
+# The architecture is to keep the raspberry pi that's in the garage with the sensor
+# as a dumb sensor.  It constantly sends the sensor readings to the server.
+# It doesn't care if the server does not exist.
+#
+# Secondly, wifi on the raspberry pi is not reliable.  So, this script will
+# just expect that the rpi can be rebooted anytime.  Rebooting implmentation
+# is done once a day at 4am in the morning.
 #
 #
 import os
@@ -38,62 +46,14 @@ GPIO_ECHO2    = 23
 time.sleep(0.5)
 
 
-# server settings
-# HOST = hostname or IP address of led_server.  example: tv.local
+# server connection info.  
+# Need this to talk to server
+# HOST = hostname or IP address of garage_monitor_server (which is hte led server)
+# example: tv.local
 # PORT = remote port.  4001 is acceptable, must match garage_monitor_server
 HOST = APP_CONFIG['garage_monitor_server']['host']
 PORT = APP_CONFIG['garage_monitor_server']['port']
 
-# start socket server
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.bind((HOST, PORT))
-s.listen(1)
-
-# add as global variables, so I can exit_gracefully()
-conn = False
-
-#
-# track door state for socket server.
-# The socket server NEVER modifies this
-#
-# 0  initial value
-# 1  closed
-# 999 open
-manager = Manager()
-state = manager.dict() #Value('i', 0)
-state['door_state'] = "INITIAL_VALUE"
-# door_state = Value('i', 1)
-
-
-def run_socket_server(state, dummy):
-  global s, conn
-
-  while True:
-    # DEBUG ONLY
-    # time.sleep(1)
-    # print "socket server started..."
-
-    #
-    # If this server fails, then the TCP stack will hold off the port
-    # for about 2 minutes, before it can be used again.  
-    # This is a more annoying for debugging, but feasible to get around
-    #
-    (conn, addr) = s.accept()
-    if conn and addr:
-      val = state['door_state']
-      print 'socket: Connected by %s and state is: %s' % (addr, val)
-      data = conn.recv(1024)
-      conn.sendall(val)
-      conn.close()
-      
-  s.close()
-  pass
-
-
-# initialize 
-dummy = 'does nothing'  # processes require 2 args!  or else I get python interpretor errors!
-socket_server = Process(target=run_socket_server, args=(state, dummy))
-socket_server.start()
 
 
 class DistanceDetector:

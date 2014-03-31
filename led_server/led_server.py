@@ -54,8 +54,40 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind((HOST, PORT))
 s.listen(1)
 
-# add some global variables, so I can clean up things easier later
+# add as global variables, so I can exit_gracefully()
 conn = False
+
+
+def run_socket_server():
+  global s, conn  # these are global, so the exit_gracefully() function can close them on exit
+  global fsm
+
+  while True:
+    # DEBUG ONLY
+    # time.sleep(1)
+    # print "test..."
+    # print repr(fsm.current)
+
+    (conn, addr) = s.accept()
+    if conn and addr:
+      print 'socket: Connected by', addr
+      data = conn.recv(1024)
+      if len(data) > 0:
+        print 'socket: data is: ' + data
+        d = data.split(',')
+        if d[2] == 'OPEN':
+          fsm.open_now()
+        else:
+          fsm.close_now()
+      conn.close()
+  s.close()
+  pass
+
+
+# initialize 
+socket_server = Process(target=run_socket_server, args=())
+socket_server.start()
+
 
 
 #
@@ -246,42 +278,11 @@ fsm = Fysom({'initial': {'state':'reset', 'event':'init'},
                'onclosed': onclosed, }})
 
 
-
-def run_socket_server():
-  global s, conn  # these are global, so the exit_gracefully() function can close them on exit
-  global fsm
-
-  while True:
-    # DEBUG ONLY
-    # time.sleep(1)
-    # print "test..."
-    # print repr(fsm.current)
-
-    (conn, addr) = s.accept()
-    if conn and addr:
-      print 'socket: Connected by', addr
-      data = conn.recv(1024)
-      if len(data) > 0:
-        print 'socket: data is: ' + data
-        d = data.split(',')
-        if d[2] == 'OPEN':
-          fsm.open_now()
-        else:
-          fsm.close_now()
-      conn.close()
-  s.close()
-  pass
-
-
-# initialize 
-socket_server = Process(target=run_socket_server, args=())
-socket_server.start()
-
 def main():
   global fsm
 
   now = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
-  print "Starting TV LED server ... {}".format(now)
+  print "Starting TV garage monitor server ... {}".format(now)
 
   # todo: hook up with a poll to garage.local webserver
   # currently assume that the garage door is closed at the start of this
@@ -296,10 +297,10 @@ def main():
       #
       # download the state from server
       #
-      url = APP_CONFIG['webapp_server']['poll_url']   #  'http://garaged.local/last50.json'
-      req = urllib2.Request(url)
-      req.add_header('Accept', 'application/json')
-      res = urllib2.urlopen(req)
+      # url = APP_CONFIG['webapp_server']['poll_url']   #  'http://garaged.local/last50.json'
+      # req = urllib2.Request(url)
+      # req.add_header('Accept', 'application/json')
+      # res = urllib2.urlopen(req)
 
     except:
       # todo:  blink the no-connection
