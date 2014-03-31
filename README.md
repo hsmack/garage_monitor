@@ -76,13 +76,15 @@ sudo gem install thin --no-ri --no-rdoc
 5. 
 
 
-Start the led server:
+### Start the led server:
 screen bash
 sudo python garage_monitor_server/led_server.py
+# detach from screen
+Ctrl-a d 
 
 # start the garage monitor sensor
 screen bash
 sudo python garage_monitor_server/garage_monitor.py
+# detach from screen
+Ctrl-a d 
 
-TODO
-Describe how to install process monitoring
