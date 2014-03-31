@@ -251,7 +251,7 @@ def exit_gracefully(signum, frame):
 def main():
   global APP_CONFIG
   global c
-  # global door_state
+  global door_state
 
   timenow = time.localtime()
   now = time.strftime("%a, %d %b %Y %H:%M:%S", timenow)
@@ -309,6 +309,36 @@ def main():
     else:
       state['door_state'] = 'OPEN'
     print "open %d, closed %d == %s" % (open_count, closed_count, state['door_state'])
+
+    
+    #
+    # report status in every method possible
+    #
+    if flag_changed == True:
+      print "  * state change detected.  write db"
+      flag_changed = False
+      
+      # report measurement to STDOUT
+      timenow = time.localtime()
+      human_readable_time = time.strftime("%a, %d %b %Y %H:%M:%S +0000", timenow)
+      print "-- Measurement {} --".format(human_readable_time)
+      print "door (open {}x{}): {}".format(open_count, closed_count, door_state)
+      
+      # write into db
+      db_time = time.strftime("%Y-%m-%d %H:%M:%S", timenow)
+      c.execute( "INSERT into door values (?, ?, ?, ?);", (db_next_id(c, 'door'), db_time, -1, door_state))
+      db_conn.commit()
+
+      #
+      # report state to push notification server
+      #
+      data = ','.join(["-1", db_time, door_state])
+      push_state_to_led_server(data)
+      #
+      # spin off a thread to send email notifications
+      #
+      send_email_in_thread(door_state, timenow)
+
 
   # Reset GPIO settings
   GPIO.cleanup()
