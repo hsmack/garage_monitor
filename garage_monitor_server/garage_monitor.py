@@ -49,7 +49,7 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind((HOST, PORT))
 s.listen(1)
 
-# add some global variables, so I can clean up things easier later
+# add as global variables, so I can exit_gracefully()
 conn = False
 
 #
@@ -66,9 +66,7 @@ state['door_state'] = "INITIAL_VALUE"
 
 
 def run_socket_server(state, dummy):
-  # print val.value
-  global s, conn  # these are global, so the exit_gracefully() function can close them on exit
-  # print val['state']
+  global s, conn
 
   while True:
     # DEBUG ONLY
