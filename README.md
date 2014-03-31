@@ -88,3 +88,9 @@ sudo python garage_monitor_server/garage_monitor.py
 # detach from screen
 Ctrl-a d 
 
+
+-----
+TODO in future versions
+
+1. Fix FSM state machine to have the process automatically poll a shared state to know when to exit.  I want to avoid terminating the process and restarting a new one.  It just seems a bit of overkill to do that.
+
