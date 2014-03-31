@@ -12,7 +12,7 @@ import json
 import urllib2
 import RPi.GPIO as GPIO
 from fysom import Fysom
-from multiprocessing import Process
+from multiprocessing import Process, Queue
 
 # get absolute path, easier for daemons or process monitors (god) to run
 current_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))  # script directory
@@ -25,8 +25,8 @@ APP_CONFIG = yaml.load(stream)
 # server settings
 # HOST = hostname or IP address of led_server.  example: tv.local
 # PORT = remote port.  4001 is acceptable, must match garage_monitor_server
-HOST = APP_CONFIG['led_server']['host']
-PORT = APP_CONFIG['led_server']['port']
+HOST = APP_CONFIG['garage_monitor_server']['host']
+PORT = APP_CONFIG['garage_monitor_server']['port']
 
 # database schema specific index
 DB_DOOR_TIME_INDEX = 1
@@ -57,8 +57,13 @@ s.listen(1)
 # add as global variables, so I can exit_gracefully()
 conn = False
 
+#
+# multiprocessing queue to manage incoming data
+#
+q = Queue()
 
-def run_socket_server():
+
+def run_socket_server(q):
   global s, conn  # these are global, so the exit_gracefully() function can close them on exit
   global fsm
 
@@ -72,23 +77,17 @@ def run_socket_server():
     if conn and addr:
       print 'socket: Connected by', addr
       data = conn.recv(1024)
+      q.put(data)
       if len(data) > 0:
         print 'socket: data is: ' + data
-        d = data.split(',')
-        if d[2] == 'OPEN':
-          fsm.open_now()
-        else:
-          fsm.close_now()
       conn.close()
   s.close()
   pass
 
 
 # initialize 
-socket_server = Process(target=run_socket_server, args=())
+socket_server = Process(target=run_socket_server, args=(q,))
 socket_server.start()
-
-
 
 #
 # simple output LED
@@ -227,41 +226,51 @@ def onreset(e):
   global led_controller
   global green_led, red_led
   print 'reset'
-  #
-  # always kill existing process and run new process
-  #
-  if led_controller.is_alive():
-    led_controller.terminate()
+  try:
+    #
+    # always kill existing process and run new process
+    #
+    if led_controller.is_alive():
+      led_controller.terminate()
+      time.sleep(0.01)
+    led_controller = Process(target=blink_red_led_with_sos, args=())
+    led_controller.start()
+  except:
     time.sleep(0.01)
-  led_controller = Process(target=blink_red_led_with_sos, args=())
-  led_controller.start()
 
 def onopen(e):
   global led_controller
   global green_led, red_led
   print 'open'
-  #
-  # always kill existing process and run new process
-  #
-  if led_controller.is_alive():
-    led_controller.terminate()
+  try:
+    #
+    # always kill existing process and run new process
+    #
+    if led_controller.is_alive():
+      led_controller.terminate()
+      time.sleep(0.01)
+    led_controller = Process(target=blink_red_led_then_solid, args=())
+    led_controller.start()
+  except:
     time.sleep(0.01)
-  led_controller = Process(target=blink_red_led_then_solid, args=())
-  led_controller.start()
+
 
 
 def onclosed(e):
   global led_controller
   global green_led, red_led
   print 'closed'
-  #
-  # always kill existing process and run new process
-  #
-  if led_controller.is_alive():
-    led_controller.terminate()
-    time.sleep(0.01)
-  led_controller = Process(target=blink_green_led_then_solid, args=())
-  led_controller.start()
+  try:
+    #
+    # always kill existing process and run new process
+    #
+    if led_controller.is_alive():
+      led_controller.terminate()
+      time.sleep(0.01)
+    led_controller = Process(target=blink_green_led_then_solid, args=())
+    led_controller.start()
+  except:
+      time.sleep(0.01)
 
 
 fsm = Fysom({'initial': {'state':'reset', 'event':'init'},
@@ -282,44 +291,40 @@ def main():
   global fsm
 
   now = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
-  print "Starting TV garage monitor server ... {}".format(now)
+  print "Starting TV garage monitor led server ... {}".format(now)
 
   # todo: hook up with a poll to garage.local webserver
   # currently assume that the garage door is closed at the start of this
   # script (most common case)
   fsm.was_closed()
 
+  i = 0
   while True:
-    time.sleep(3) # DEBUG
-    # time.sleep(60) # every minute
     
-    try:
-      #
-      # download the state from server
-      #
-      # url = APP_CONFIG['webapp_server']['poll_url']   #  'http://garaged.local/last50.json'
-      # req = urllib2.Request(url)
-      # req.add_header('Accept', 'application/json')
-      # res = urllib2.urlopen(req)
+    if (q.qsize() > 0):
+      data = q.get()
+      d = data.split(',')
+      door_state = d[0]
+      db_time = d[1]
+      print "%d: door_state: %s, time: %s" % (i, door_state, db_time)
+      print 'fsm current state: ', fsm.current.upper()
 
-    except:
-      # todo:  blink the no-connection
-      print "no connection"
-      fsm.lost_connection()
+      prev_state = fsm.current.upper()
+      if(door_state.upper() == 'CLOSED' and 'CLOSED' != fsm.current.upper()):
+        fsm.close_now()
+        time.sleep(10)
+        print "sleeping 10"
+        print "fsm: %s -> CLOSED" % prev_state
 
-    FIRST_RECORD = 0
-    door = json.loads(res.read())
+      if(door_state.upper() == 'OPEN' and 'OPEN' != fsm.current.upper()):
+        fsm.open_now()
+        time.sleep(10)
+        print "sleeping 10"
+        print "poll:  %s -> OPEN" % prev_state
 
-    print 'DECODED:', door[FIRST_RECORD]
-    print 'current state: ', fsm.current.upper()
-
-    prev_state = fsm.current()
-    if(door[FIRST_RECORD][DB_DOOR_STATE_INDEX].upper() == 'CLOSED' and 'CLOSED' != fsm.current.upper()):
-      fsm.close_now()
-      print "poll: %s -> CLOSED" % prev_state
-    if(door[FIRST_RECORD][DB_DOOR_STATE_INDEX].upper() == 'OPEN' and 'OPEN' != fsm.current.upper()):
-      fsm.open_now()
-      print "poll:  %s -> OPEN" % prev_state
+    # print "waiting ..." # debug
+    time.sleep(10)
+    i += 1
 
 
 #
@@ -355,4 +360,6 @@ if __name__ == "__main__":
   for sig in [signal.SIGTERM, signal.SIGINT, signal.SIGHUP, signal.SIGQUIT]:
     signal.signal(sig, exit_gracefully)
   main()
+
+
 

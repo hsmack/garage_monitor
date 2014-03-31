@@ -74,3 +74,15 @@ sudo gem install thin --no-ri --no-rdoc
 
 4. Copy over the GPIO tests to verify the input detection is good.  A multimeter can also be used to confirm the voltages are 3.3V and 0V.
 5. 
+
+
+Start the led server:
+screen bash
+sudo python garage_monitor_server/led_server.py
+
+# start the garage monitor sensor
+screen bash
+sudo python garage_monitor_server/garage_monitor.py
+
+TODO
+Describe how to install process monitoring
