@@ -23,7 +23,7 @@ import inspect
 import yaml
 import RPi.GPIO as GPIO
 import numpy as NP
-from multiprocessing import Process, Manager
+
 
 # get absolute path, easier for daemons or process monitors (god) to run
 current_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))  # script directory
@@ -45,14 +45,6 @@ GPIO_ECHO2    = 23
 # Allow module to settle
 time.sleep(0.5)
 
-
-# server connection info.  
-# Need this to talk to server
-# HOST = hostname or IP address of garage_monitor_server (which is hte led server)
-# example: tv.local
-# PORT = remote port.  4001 is acceptable, must match garage_monitor_server
-HOST = APP_CONFIG['garage_monitor_server']['host']
-PORT = APP_CONFIG['garage_monitor_server']['port']
 
 
 
@@ -221,27 +213,36 @@ class DistanceDetector:
     return [high_index, high_value]
 
 
+
+#
+# sends the garage state to remote server
+# uses a simple tcp socket to send data
+#
+def push_state_to_garage_monitor_server(data):
+  global APP_CONFIG
+  
+  host = APP_CONFIG['garage_monitor_server']['host']   # The remote host
+  port = APP_CONFIG['garage_monitor_server']['port']   # The same port as used by the server
+
+  # if APP_CONFIG['garage_monitor_server']['enable_notifications']['via_push_notify'] == True:
+  try:
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((host, port))
+    print 'push to garage_monitor_server ...', repr(data)  # data
+    s.sendall(data)
+    s.close()
+  except:
+    timenow = time.localtime()
+    now = time.strftime("%a, %d %b %Y %H:%M:%S", timenow)
+    sys.stderr.write("PushNotificationCommunicationError: %s: %s \n" % (now, sys.exc_info()[1]))
+  
+
 #
 # interrupt handler:  exit from application and close gpios
 #
 def exit_gracefully(signum, frame):
   print "You pressed Ctrl-C, exiting program (status=0) ..."
-  
-  if socket_server.is_alive():
-    socket_server.terminate()
-
   GPIO.cleanup()
-
-  try:
-    conn.close()
-  except:
-    sys.stderr.write("couldn't close socket connection: %s \n" % sys.exc_info()[1])
-
-  try:
-    s.close()
-  except:
-    sys.stderr.write("couldn't close socket server: %s \n" % sys.exc_info()[1])
-
   sys.exit(0)
 
 
@@ -250,7 +251,6 @@ def exit_gracefully(signum, frame):
 #
 def main():
   global APP_CONFIG
-  global c
   global door_state
 
   timenow = time.localtime()
@@ -305,40 +305,28 @@ def main():
     # will force me to check if the door is open.  
     #
     if closed_count > open_count:
-      state['door_state'] = 'CLOSED'
+      door_state = 'CLOSED'
     else:
-      state['door_state'] = 'OPEN'
-    print "open %d, closed %d == %s" % (open_count, closed_count, state['door_state'])
+      door_state = 'OPEN'
 
+    # report measurement to STDOUT
+    timenow = time.localtime()
+    human_readable_time = time.strftime("%a, %d %b %Y %H:%M:%S +0000", timenow)
+    db_time = time.strftime("%Y-%m-%d %H:%M:%S", timenow)
+    print "%s: open %d, closed %d == %s" % (human_readable_time, open_count, closed_count, door_state)
+
+    #
+    # report state to push notification server
+    #
+    data = ','.join([db_time, door_state])
+    push_state_to_garage_monitor_server(data)
     
     #
-    # report status in every method possible
+    # send state every 20 seconds
     #
-    if flag_changed == True:
-      print "  * state change detected.  write db"
-      flag_changed = False
-      
-      # report measurement to STDOUT
-      timenow = time.localtime()
-      human_readable_time = time.strftime("%a, %d %b %Y %H:%M:%S +0000", timenow)
-      print "-- Measurement {} --".format(human_readable_time)
-      print "door (open {}x{}): {}".format(open_count, closed_count, door_state)
-      
-      # write into db
-      db_time = time.strftime("%Y-%m-%d %H:%M:%S", timenow)
-      c.execute( "INSERT into door values (?, ?, ?, ?);", (db_next_id(c, 'door'), db_time, -1, door_state))
-      db_conn.commit()
-
-      #
-      # report state to push notification server
-      #
-      data = ','.join(["-1", db_time, door_state])
-      push_state_to_led_server(data)
-      #
-      # spin off a thread to send email notifications
-      #
-      send_email_in_thread(door_state, timenow)
-
+    sleep_time = 15
+    # print "sleeping %d seconds..." % (sleep_time)
+    time.sleep(15)
 
   # Reset GPIO settings
   GPIO.cleanup()
