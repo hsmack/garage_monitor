@@ -1,0 +1,48 @@
+---
+#
+# email notifications are simply emailed to the user
+# tcpsocket notification requires a receiving tcp socket server. 
+#
+garage_monitor_server:
+  enable_notifications:
+    via_email: true
+    via_push_notify: true
+
+  email_notifications:
+    notify_email: me@example.com
+    sender_email: garagemon@example.com
+
+#
+# this database is shared across:
+# - garage_monitor (also called garage_monitor_server)
+# - garage_monitor_webapp
+# - create_garage_database
+#
+# please make sure the file exists in database/ directory
+#
+database:
+  adapter: sqlite3
+  filename: gm.db
+  timeout: 5000
+
+#
+# allows the garage_monitor_server to send emails.
+#
+smtp:
+  address: smtp.gmail.com
+  port: 587
+  user_from: Garage Door Detector
+  login: garagemon@example.com
+  password: somesecretpassword
+  authentication: plain
+
+#
+# The led_server runs a tcp socket server to receive
+# the client push notifications from garage_monitor_server
+# 
+# garage_monitor_server will not fail if this led_server is not present
+#
+led_server:
+  host: ledserver.local
+  port: 4001
+
