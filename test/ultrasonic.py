@@ -18,82 +18,88 @@ import RPi.GPIO as GPIO
 GPIO.setmode(GPIO.BCM)
 
 # Define GPIO to use on Pi
-GPIO_TRIGGER1 = 11
-GPIO_ECHO1    = 8
+GPIO_TRIGGER = 22
+GPIO_ECHO    = 23
 
-GPIO_TRIGGER2 = 22
-GPIO_ECHO2    = 23
-
-
-print "Ultrasonic Measurement, 2 sensors"
+print "Ultrasonic Measurement"
 
 # Set pins as output and input
-GPIO.setup(GPIO_TRIGGER1,GPIO.OUT)  # Trigger
-GPIO.setup(GPIO_ECHO1,GPIO.IN)      # Echo
-
-
-# Set pins as output and input
-GPIO.setup(GPIO_TRIGGER2,GPIO.OUT)  # Trigger
-GPIO.setup(GPIO_ECHO2,GPIO.IN)      # Echo
-
+GPIO.setup(GPIO_TRIGGER,GPIO.OUT)  # Trigger
+GPIO.setup(GPIO_ECHO,GPIO.IN)      # Echo
 
 # Set trigger to False (Low)
-GPIO.output(GPIO_TRIGGER1, False)
-GPIO.output(GPIO_TRIGGER2, False)
+GPIO.output(GPIO_TRIGGER, False)
 
 # Allow module to settle
 time.sleep(0.5)
 
-TIMEOUT = 2 #seconds
 
-def meas(trigger_pin, echo_pin):
+def meas():
   # Send 10us pulse to trigger
-  GPIO.output(trigger_pin, True)
+  GPIO.output(GPIO_TRIGGER, True)
   time.sleep(0.00001)
-  GPIO.output(trigger_pin, False)
+  GPIO.output(GPIO_TRIGGER, False)
   start = time.time()
 
-  timeout_start = time.time()
-  timeout_exceeded_flag = False
-
-  while GPIO.input(echo_pin)==0:
+  while GPIO.input(GPIO_ECHO)==0:
     start = time.time()
-    # if timeout_exceeded_flag || ((time.time() - timeout_start) > TIMEOUT):
-    #   timeout_exceeded_flag = True
-    #   break
 
-  while GPIO.input(echo_pin)==1:
+  while GPIO.input(GPIO_ECHO)==1:
     stop = time.time()
-    # if timeout_exceeded_flag || ((time.time() - timeout_start) > TIMEOUT):
-    #   timeout_exceeded_flag = True
-    #   break
-
-  if timeout_exceeded_flag:
-    print "TIMEOUT... no measurement"
-    return -1
 
   # Calculate pulse length
   elapsed = stop-start
 
   # Distance pulse travelled in that time is time
-  # multiplied by the speed of sound (cm/s) and /2 the distance
-  distance = elapsed * 34029 / 2 / 2.54
+  # multiplied by the speed of sound (cm/s)
+  distance = elapsed * 34029 / 2
 
-  print "Distance : %.1f inches" % distance
-  return distance
+  # That was the distance there and back so halve the value
+  # distance = distance / 2
 
+  print "Distance : %.1f cm" % distance
 
-for i in xrange(15):
-  print "meas sensor blue {}".format(i)
-  meas(GPIO_TRIGGER1, GPIO_ECHO1)
-  
-  time.sleep(0.2) # rest the sensor a bit?
-
-  print "meas sensor red {}".format(i)
-  meas(GPIO_TRIGGER2, GPIO_ECHO2)
-  time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
+meas()
+time.sleep(1)
 
 
 # Reset GPIO settings
 GPIO.cleanup()
-

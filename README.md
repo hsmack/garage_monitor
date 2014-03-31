@@ -74,3 +74,23 @@ sudo gem install thin --no-ri --no-rdoc
 
 4. Copy over the GPIO tests to verify the input detection is good.  A multimeter can also be used to confirm the voltages are 3.3V and 0V.
 5. 
+
+
+### Start the led server:
+screen bash
+sudo python garage_monitor_server/led_server.py
+# detach from screen
+Ctrl-a d 
+
+# start the garage monitor sensor
+screen bash
+sudo python garage_monitor_server/garage_monitor.py
+# detach from screen
+Ctrl-a d 
+
+
+-----
+TODO in future versions
+
+1. Fix FSM state machine to have the process automatically poll a shared state to know when to exit.  I want to avoid terminating the process and restarting a new one.  It just seems a bit of overkill to do that.
+
